@@ -1,6 +1,7 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Workspace } from "@/components/workspace/Workspace";
 
 export const Route = createFileRoute("/app")({
   ssr: false,
@@ -39,5 +40,3 @@ function AppShell() {
 
   return <Workspace />;
 }
-
-import { Workspace } from "@/components/workspace/Workspace";
