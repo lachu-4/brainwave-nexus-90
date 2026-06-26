@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Plus, LayoutDashboard, History, Bookmark, Wrench, Mic,
-  Send, Globe, FileText, ShieldCheck, Settings, LogOut, MessageSquare,
+  Send, Globe, ShieldCheck, Settings, LogOut, MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +27,8 @@ const MODE_META: Record<Mode, { label: string; icon: typeof Globe; placeholder: 
   factcheck: { label: "Fact Check", icon: ShieldCheck,   placeholder: "Paste a claim to fact-check..." },
 };
 
+type NavKey = "dashboard" | "history" | "saved" | "tools" | "voice";
+
 export function Workspace() {
   const [userEmail, setUserEmail] = useState("");
   const [displayName, setDisplayName] = useState("there");
@@ -35,6 +37,8 @@ export function Workspace() {
   const [mode, setMode] = useState<Mode>("chat");
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [loadingConv, setLoadingConv] = useState(false);
+  const [nav, setNav] = useState<NavKey>("dashboard");
+
 
   // Load profile + conversations on mount
   useEffect(() => {
@@ -91,15 +95,39 @@ export function Workspace() {
     window.location.replace("/auth");
   }
 
+  const filteredConversations = useMemo(() => {
+    if (nav === "saved") return conversations.filter(c => c.mode === "research");
+    if (nav === "voice") return conversations.filter(c => /voice|transcri/i.test(c.title));
+    return conversations;
+  }, [conversations, nav]);
+
+  function handleNav(key: NavKey) {
+    setNav(key);
+    if (key === "dashboard") {
+      newChat("chat");
+    } else if (key === "saved") {
+      newChat("research");
+      toast.message("Showing saved research conversations");
+    } else if (key === "history") {
+      toast.message(`${conversations.length} conversation${conversations.length === 1 ? "" : "s"} in history`);
+    } else if (key === "tools") {
+      toast.message("Pick a mode to switch tools", { description: "Chat · Research · Fact Check" });
+    } else if (key === "voice") {
+      toast.message("Voice notes coming soon");
+    }
+  }
+
   return (
     <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
       <Sidebar
         displayName={displayName}
         userEmail={userEmail}
-        conversations={conversations}
+        conversations={filteredConversations}
         activeId={activeId}
+        activeNav={nav}
+        onNav={handleNav}
         onSelect={loadConversation}
-        onNew={() => newChat()}
+        onNew={() => { setNav("dashboard"); newChat(); }}
         onSignOut={signOut}
       />
       <ChatPane
@@ -113,18 +141,26 @@ export function Workspace() {
         onConversationsChanged={refreshConversations}
         loading={loadingConv}
       />
-      <RightRail mode={mode} onSelectMode={(m) => { newChat(m); }} />
     </div>
   );
 }
+
 
 /* ---------------- Sidebar ---------------- */
 function Sidebar(props: {
   displayName: string; userEmail: string;
   conversations: Conversation[]; activeId: string | null;
+  activeNav: NavKey; onNav: (k: NavKey) => void;
   onSelect: (id: string) => void; onNew: () => void; onSignOut: () => void;
 }) {
-  const { displayName, userEmail, conversations, activeId, onSelect, onNew, onSignOut } = props;
+  const { displayName, userEmail, conversations, activeId, activeNav, onNav, onSelect, onNew, onSignOut } = props;
+  const navItems: { key: NavKey; icon: typeof LayoutDashboard; label: string }[] = [
+    { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { key: "history",   icon: History,         label: "History" },
+    { key: "saved",     icon: Bookmark,        label: "Saved Research" },
+    { key: "tools",     icon: Wrench,          label: "Tools" },
+    { key: "voice",     icon: Mic,             label: "Voice Notes" },
+  ];
   return (
     <aside className="w-72 shrink-0 border-r border-border bg-sidebar flex flex-col">
       <div className="px-5 py-5 flex items-center gap-2.5">
@@ -147,23 +183,28 @@ function Sidebar(props: {
       </div>
 
       <nav className="px-3 mt-4 space-y-0.5">
-        {[
-          { icon: LayoutDashboard, label: "Dashboard" },
-          { icon: History, label: "History" },
-          { icon: Bookmark, label: "Saved Research" },
-          { icon: Wrench, label: "Tools" },
-          { icon: Mic, label: "Voice Notes" },
-        ].map((item) => (
-          <button key={item.label} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent transition">
+        {navItems.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => onNav(item.key)}
+            className={cn(
+              "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition",
+              activeNav === item.key
+                ? "bg-primary-soft text-primary font-medium"
+                : "text-sidebar-foreground/80 hover:bg-sidebar-accent"
+            )}
+          >
             <item.icon className="h-4 w-4" />
             {item.label}
           </button>
         ))}
       </nav>
 
-      <div className="px-3 mt-5">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-2 mb-1.5">Recent</div>
-        <ScrollArea className="h-[calc(100vh-540px)] min-h-32">
+      <div className="px-3 mt-5 flex-1 min-h-0 flex flex-col">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-2 mb-1.5">
+          {activeNav === "saved" ? "Saved Research" : activeNav === "voice" ? "Voice Notes" : "Recent"}
+        </div>
+        <ScrollArea className="flex-1 min-h-32">
           <div className="space-y-0.5 pr-1">
             {conversations.length === 0 && (
               <div className="text-xs text-muted-foreground px-2 py-3">No conversations yet.</div>
@@ -184,6 +225,7 @@ function Sidebar(props: {
           </div>
         </ScrollArea>
       </div>
+
 
       <div className="mt-auto p-3 space-y-3">
         <div className="rounded-2xl p-4 bg-gradient-to-br from-primary-soft to-accent">
@@ -487,58 +529,5 @@ function EmptyState({ mode }: { mode: Mode }) {
   );
 }
 
-/* ---------------- Right Rail ---------------- */
-function RightRail({ mode, onSelectMode }: { mode: Mode; onSelectMode: (m: Mode) => void }) {
-  return (
-    <aside className="w-80 shrink-0 border-l border-border bg-background overflow-y-auto">
-      <div className="p-5 space-y-4">
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-6 w-6 rounded-md bg-primary-soft text-primary flex items-center justify-center text-xs font-bold">A</div>
-            <div className="font-semibold text-sm">Mode</div>
-          </div>
-          <div className="text-2xl font-bold mb-1">{MODE_META[mode].label}</div>
-          <p className="text-xs text-muted-foreground">
-            {mode === "chat" && "General-purpose assistant for everyday questions."}
-            {mode === "research" && "Deep, structured answers with key points and summaries."}
-            {mode === "factcheck" && "Evaluates claims and reports a calibrated verdict."}
-          </p>
-        </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold text-sm">Tools</div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { icon: Globe, label: "Research", mode: "research" as Mode },
-              { icon: Mic, label: "Voice", mode: null },
-              { icon: FileText, label: "Summarize", mode: null },
-              { icon: ShieldCheck, label: "Fact Check", mode: "factcheck" as Mode },
-              { icon: MessageSquare, label: "Chat", mode: "chat" as Mode },
-              { icon: Wrench, label: "More", mode: null },
-            ].map((t, i) => (
-              <button
-                key={i}
-                onClick={() => t.mode && onSelectMode(t.mode)}
-                className="aspect-square rounded-xl border border-border hover:border-primary/40 hover:bg-primary-soft/40 flex flex-col items-center justify-center gap-1 transition"
-              >
-                <t.icon className="h-4 w-4 text-primary" />
-                <span className="text-[10px] text-muted-foreground">{t.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="font-semibold text-sm mb-2">Tips</div>
-          <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
-            <li>Switch modes anytime — each uses a different system prompt.</li>
-            <li>Your conversations are saved automatically.</li>
-            <li>Click <span className="text-foreground font-medium">New Research</span> to start fresh.</li>
-          </ul>
-        </div>
-      </div>
-    </aside>
-  );
-}
