@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Plus, LayoutDashboard, History, Bookmark, Wrench, Mic,
-  Send, Globe, FileText, ShieldCheck, Settings, LogOut, MessageSquare,
+  Send, Globe, ShieldCheck, Settings, LogOut, MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
