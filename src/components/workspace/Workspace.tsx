@@ -529,58 +529,5 @@ function EmptyState({ mode }: { mode: Mode }) {
   );
 }
 
-/* ---------------- Right Rail ---------------- */
-function RightRail({ mode, onSelectMode }: { mode: Mode; onSelectMode: (m: Mode) => void }) {
-  return (
-    <aside className="w-80 shrink-0 border-l border-border bg-background overflow-y-auto">
-      <div className="p-5 space-y-4">
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-6 w-6 rounded-md bg-primary-soft text-primary flex items-center justify-center text-xs font-bold">A</div>
-            <div className="font-semibold text-sm">Mode</div>
-          </div>
-          <div className="text-2xl font-bold mb-1">{MODE_META[mode].label}</div>
-          <p className="text-xs text-muted-foreground">
-            {mode === "chat" && "General-purpose assistant for everyday questions."}
-            {mode === "research" && "Deep, structured answers with key points and summaries."}
-            {mode === "factcheck" && "Evaluates claims and reports a calibrated verdict."}
-          </p>
-        </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold text-sm">Tools</div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { icon: Globe, label: "Research", mode: "research" as Mode },
-              { icon: Mic, label: "Voice", mode: null },
-              { icon: FileText, label: "Summarize", mode: null },
-              { icon: ShieldCheck, label: "Fact Check", mode: "factcheck" as Mode },
-              { icon: MessageSquare, label: "Chat", mode: "chat" as Mode },
-              { icon: Wrench, label: "More", mode: null },
-            ].map((t, i) => (
-              <button
-                key={i}
-                onClick={() => t.mode && onSelectMode(t.mode)}
-                className="aspect-square rounded-xl border border-border hover:border-primary/40 hover:bg-primary-soft/40 flex flex-col items-center justify-center gap-1 transition"
-              >
-                <t.icon className="h-4 w-4 text-primary" />
-                <span className="text-[10px] text-muted-foreground">{t.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
 
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="font-semibold text-sm mb-2">Tips</div>
-          <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
-            <li>Switch modes anytime — each uses a different system prompt.</li>
-            <li>Your conversations are saved automatically.</li>
-            <li>Click <span className="text-foreground font-medium">New Research</span> to start fresh.</li>
-          </ul>
-        </div>
-      </div>
-    </aside>
-  );
-}
