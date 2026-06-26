@@ -5,10 +5,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-  Sparkles, Plus, LayoutDashboard, History, Bookmark, Wrench, Mic,
-  Send, Globe, ShieldCheck, Settings, LogOut, MessageSquare,
+  Sparkles, Plus, LayoutDashboard, Bookmark, Wrench,
+  Send, Globe, ShieldCheck, LogOut, MessageSquare, MoreHorizontal,
+  Pencil, Trash2, BookmarkPlus, BookmarkMinus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,6 +26,7 @@ type Conversation = {
   title: string;
   mode: Mode;
   updated_at: string;
+  is_saved: boolean;
 };
 
 const MODE_META: Record<Mode, { label: string; icon: typeof Globe; placeholder: string }> = {
@@ -27,7 +35,7 @@ const MODE_META: Record<Mode, { label: string; icon: typeof Globe; placeholder: 
   factcheck: { label: "Fact Check", icon: ShieldCheck,   placeholder: "Paste a claim to fact-check..." },
 };
 
-type NavKey = "dashboard" | "history" | "saved" | "tools" | "voice";
+type NavKey = "dashboard" | "saved" | "tools";
 
 export function Workspace() {
   const [userEmail, setUserEmail] = useState("");
@@ -38,9 +46,9 @@ export function Workspace() {
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [loadingConv, setLoadingConv] = useState(false);
   const [nav, setNav] = useState<NavKey>("dashboard");
+  const [renameTarget, setRenameTarget] = useState<Conversation | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
-
-  // Load profile + conversations on mount
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -56,9 +64,9 @@ export function Workspace() {
   async function refreshConversations() {
     const { data, error } = await supabase
       .from("conversations")
-      .select("id,title,mode,updated_at")
+      .select("id,title,mode,updated_at,is_saved")
       .order("updated_at", { ascending: false })
-      .limit(50);
+      .limit(100);
     if (error) { toast.error(error.message); return; }
     setConversations((data ?? []) as Conversation[]);
   }
@@ -95,9 +103,41 @@ export function Workspace() {
     window.location.replace("/auth");
   }
 
+  async function toggleSaved(conv: Conversation) {
+    const next = !conv.is_saved;
+    const { error } = await supabase.from("conversations").update({ is_saved: next }).eq("id", conv.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(next ? "Saved to Saved Research" : "Removed from Saved Research");
+    await refreshConversations();
+  }
+
+  async function deleteConversation(conv: Conversation) {
+    if (!confirm(`Delete "${conv.title}"? This cannot be undone.`)) return;
+    await supabase.from("messages").delete().eq("conversation_id", conv.id);
+    const { error } = await supabase.from("conversations").delete().eq("id", conv.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Conversation deleted");
+    if (activeId === conv.id) newChat();
+    await refreshConversations();
+  }
+
+  function openRename(conv: Conversation) {
+    setRenameTarget(conv);
+    setRenameValue(conv.title);
+  }
+
+  async function submitRename() {
+    if (!renameTarget) return;
+    const title = renameValue.trim();
+    if (!title) return;
+    const { error } = await supabase.from("conversations").update({ title }).eq("id", renameTarget.id);
+    if (error) { toast.error(error.message); return; }
+    setRenameTarget(null);
+    await refreshConversations();
+  }
+
   const filteredConversations = useMemo(() => {
-    if (nav === "saved") return conversations.filter(c => c.mode === "research");
-    if (nav === "voice") return conversations.filter(c => /voice|transcri/i.test(c.title));
+    if (nav === "saved") return conversations.filter(c => c.is_saved);
     return conversations;
   }, [conversations, nav]);
 
@@ -106,14 +146,9 @@ export function Workspace() {
     if (key === "dashboard") {
       newChat("chat");
     } else if (key === "saved") {
-      newChat("research");
-      toast.message("Showing saved research conversations");
-    } else if (key === "history") {
-      toast.message(`${conversations.length} conversation${conversations.length === 1 ? "" : "s"} in history`);
+      // just filter; don't reset chat
     } else if (key === "tools") {
-      toast.message("Pick a mode to switch tools", { description: "Chat · Research · Fact Check" });
-    } else if (key === "voice") {
-      toast.message("Voice notes coming soon");
+      toast.message("Pick a mode", { description: "Chat · Research · Fact Check" });
     }
   }
 
@@ -129,6 +164,9 @@ export function Workspace() {
         onSelect={loadConversation}
         onNew={() => { setNav("dashboard"); newChat(); }}
         onSignOut={signOut}
+        onToggleSaved={toggleSaved}
+        onRename={openRename}
+        onDelete={deleteConversation}
       />
       <ChatPane
         key={activeId ?? "new"}
@@ -140,11 +178,28 @@ export function Workspace() {
         displayName={displayName}
         onConversationsChanged={refreshConversations}
         loading={loadingConv}
+        currentConv={conversations.find(c => c.id === activeId) ?? null}
+        onToggleSaved={toggleSaved}
       />
+
+      <Dialog open={!!renameTarget} onOpenChange={(o) => !o && setRenameTarget(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Rename conversation</DialogTitle></DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submitRename(); }}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRenameTarget(null)}>Cancel</Button>
+            <Button onClick={submitRename}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
 
 /* ---------------- Sidebar ---------------- */
 function Sidebar(props: {
@@ -152,14 +207,15 @@ function Sidebar(props: {
   conversations: Conversation[]; activeId: string | null;
   activeNav: NavKey; onNav: (k: NavKey) => void;
   onSelect: (id: string) => void; onNew: () => void; onSignOut: () => void;
+  onToggleSaved: (c: Conversation) => void;
+  onRename: (c: Conversation) => void;
+  onDelete: (c: Conversation) => void;
 }) {
-  const { displayName, userEmail, conversations, activeId, activeNav, onNav, onSelect, onNew, onSignOut } = props;
+  const { displayName, userEmail, conversations, activeId, activeNav, onNav, onSelect, onNew, onSignOut, onToggleSaved, onRename, onDelete } = props;
   const navItems: { key: NavKey; icon: typeof LayoutDashboard; label: string }[] = [
     { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    { key: "history",   icon: History,         label: "History" },
     { key: "saved",     icon: Bookmark,        label: "Saved Research" },
     { key: "tools",     icon: Wrench,          label: "Tools" },
-    { key: "voice",     icon: Mic,             label: "Voice Notes" },
   ];
   return (
     <aside className="w-72 shrink-0 border-r border-border bg-sidebar flex flex-col">
@@ -202,30 +258,63 @@ function Sidebar(props: {
 
       <div className="px-3 mt-5 flex-1 min-h-0 flex flex-col">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-2 mb-1.5">
-          {activeNav === "saved" ? "Saved Research" : activeNav === "voice" ? "Voice Notes" : "Recent"}
+          {activeNav === "saved" ? "Saved Research" : "Recent"}
         </div>
         <ScrollArea className="flex-1 min-h-32">
           <div className="space-y-0.5 pr-1">
             {conversations.length === 0 && (
-              <div className="text-xs text-muted-foreground px-2 py-3">No conversations yet.</div>
+              <div className="text-xs text-muted-foreground px-2 py-3">
+                {activeNav === "saved" ? "No saved research yet." : "No conversations yet."}
+              </div>
             )}
             {conversations.map(c => (
-              <button
+              <div
                 key={c.id}
-                onClick={() => onSelect(c.id)}
                 className={cn(
-                  "w-full text-left px-3 py-2 rounded-lg text-sm truncate transition",
-                  activeId === c.id ? "bg-primary-soft text-primary font-medium" : "hover:bg-sidebar-accent text-sidebar-foreground/80"
+                  "group flex items-center gap-1 rounded-lg pr-1 transition",
+                  activeId === c.id ? "bg-primary-soft" : "hover:bg-sidebar-accent"
                 )}
-                title={c.title}
               >
-                {c.title}
-              </button>
+                <button
+                  onClick={() => onSelect(c.id)}
+                  className={cn(
+                    "flex-1 min-w-0 text-left px-3 py-2 rounded-lg text-sm truncate flex items-center gap-2",
+                    activeId === c.id ? "text-primary font-medium" : "text-sidebar-foreground/80"
+                  )}
+                  title={c.title}
+                >
+                  {c.is_saved && <Bookmark className="h-3 w-3 shrink-0 fill-current" />}
+                  <span className="truncate">{c.title}</span>
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 p-1 rounded hover:bg-background/60 text-muted-foreground"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onClick={() => onToggleSaved(c)}>
+                      {c.is_saved
+                        ? <><BookmarkMinus className="h-4 w-4 mr-2" /> Unsave</>
+                        : <><BookmarkPlus className="h-4 w-4 mr-2" /> Save research</>}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onRename(c)}>
+                      <Pencil className="h-4 w-4 mr-2" /> Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onDelete(c)} className="text-destructive focus:text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" /> Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ))}
           </div>
         </ScrollArea>
       </div>
-
 
       <div className="mt-auto p-3 space-y-3">
         <div className="rounded-2xl p-4 bg-gradient-to-br from-primary-soft to-accent">
@@ -261,8 +350,10 @@ function ChatPane(props: {
   displayName: string;
   onConversationsChanged: () => Promise<void>;
   loading: boolean;
+  currentConv: Conversation | null;
+  onToggleSaved: (c: Conversation) => void;
 }) {
-  const { mode, setMode, activeId, setActiveId, initialMessages, displayName, onConversationsChanged, loading } = props;
+  const { mode, setMode, activeId, setActiveId, initialMessages, displayName, onConversationsChanged, loading, currentConv, onToggleSaved } = props;
   const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
   const [input, setInput] = useState("");
   const persistedIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => m.id)));
@@ -280,7 +371,6 @@ function ChatPane(props: {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, status]);
 
-  // Persist new messages
   useEffect(() => {
     (async () => {
       if (status === "streaming" || status === "submitted") return;
@@ -291,7 +381,6 @@ function ChatPane(props: {
       const newOnes = messages.filter(m => !persistedIdsRef.current.has(m.id));
       if (newOnes.length === 0) return;
 
-      // create conversation lazily on first user message
       if (!convId) {
         const firstUser = newOnes.find(m => m.role === "user");
         if (!firstUser) return;
@@ -339,7 +428,6 @@ function ChatPane(props: {
 
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-background">
-      {/* Header */}
       <header className="px-8 py-5 border-b border-border flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Good day, {displayName}! 👋</h1>
@@ -365,16 +453,22 @@ function ChatPane(props: {
               );
             })}
           </div>
-          <button className="h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition" title="Voice">
-            <Mic className="h-4 w-4" />
-          </button>
-          <button className="h-9 w-9 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-secondary transition">
-            <Settings className="h-4 w-4" />
-          </button>
+          {currentConv && (
+            <button
+              onClick={() => onToggleSaved(currentConv)}
+              className={cn(
+                "h-9 px-3 rounded-lg border border-border flex items-center gap-1.5 text-xs font-medium transition",
+                currentConv.is_saved ? "bg-primary-soft text-primary border-primary/30" : "text-muted-foreground hover:bg-secondary"
+              )}
+              title={currentConv.is_saved ? "Unsave" : "Save research"}
+            >
+              <Bookmark className={cn("h-4 w-4", currentConv.is_saved && "fill-current")} />
+              {currentConv.is_saved ? "Saved" : "Save"}
+            </button>
+          )}
         </div>
       </header>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 py-6">
         <div className="max-w-3xl mx-auto space-y-6">
           {loading && <div className="text-sm text-muted-foreground">Loading conversation…</div>}
@@ -399,7 +493,6 @@ function ChatPane(props: {
         </div>
       </div>
 
-      {/* Composer */}
       <div className="px-8 pb-6">
         <form onSubmit={handleSend} className="max-w-3xl mx-auto bg-card border border-border rounded-2xl p-3 shadow-sm">
           <Input
@@ -465,7 +558,6 @@ function MessageBubble({ message }: { message: UIMessage }) {
 }
 
 function Markdown({ text }: { text: string }) {
-  // Tiny markdown: headings, bullets, bold, code
   const lines = text.split("\n");
   const out: React.ReactNode[] = [];
   let listBuf: string[] = [];
@@ -528,6 +620,3 @@ function EmptyState({ mode }: { mode: Mode }) {
     </div>
   );
 }
-
-
-
