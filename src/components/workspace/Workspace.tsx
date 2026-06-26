@@ -150,9 +150,17 @@ export function Workspace() {
 function Sidebar(props: {
   displayName: string; userEmail: string;
   conversations: Conversation[]; activeId: string | null;
+  activeNav: NavKey; onNav: (k: NavKey) => void;
   onSelect: (id: string) => void; onNew: () => void; onSignOut: () => void;
 }) {
-  const { displayName, userEmail, conversations, activeId, onSelect, onNew, onSignOut } = props;
+  const { displayName, userEmail, conversations, activeId, activeNav, onNav, onSelect, onNew, onSignOut } = props;
+  const navItems: { key: NavKey; icon: typeof LayoutDashboard; label: string }[] = [
+    { key: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { key: "history",   icon: History,         label: "History" },
+    { key: "saved",     icon: Bookmark,        label: "Saved Research" },
+    { key: "tools",     icon: Wrench,          label: "Tools" },
+    { key: "voice",     icon: Mic,             label: "Voice Notes" },
+  ];
   return (
     <aside className="w-72 shrink-0 border-r border-border bg-sidebar flex flex-col">
       <div className="px-5 py-5 flex items-center gap-2.5">
@@ -175,23 +183,28 @@ function Sidebar(props: {
       </div>
 
       <nav className="px-3 mt-4 space-y-0.5">
-        {[
-          { icon: LayoutDashboard, label: "Dashboard" },
-          { icon: History, label: "History" },
-          { icon: Bookmark, label: "Saved Research" },
-          { icon: Wrench, label: "Tools" },
-          { icon: Mic, label: "Voice Notes" },
-        ].map((item) => (
-          <button key={item.label} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent transition">
+        {navItems.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => onNav(item.key)}
+            className={cn(
+              "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition",
+              activeNav === item.key
+                ? "bg-primary-soft text-primary font-medium"
+                : "text-sidebar-foreground/80 hover:bg-sidebar-accent"
+            )}
+          >
             <item.icon className="h-4 w-4" />
             {item.label}
           </button>
         ))}
       </nav>
 
-      <div className="px-3 mt-5">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-2 mb-1.5">Recent</div>
-        <ScrollArea className="h-[calc(100vh-540px)] min-h-32">
+      <div className="px-3 mt-5 flex-1 min-h-0 flex flex-col">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-2 mb-1.5">
+          {activeNav === "saved" ? "Saved Research" : activeNav === "voice" ? "Voice Notes" : "Recent"}
+        </div>
+        <ScrollArea className="flex-1 min-h-32">
           <div className="space-y-0.5 pr-1">
             {conversations.length === 0 && (
               <div className="text-xs text-muted-foreground px-2 py-3">No conversations yet.</div>
@@ -212,6 +225,7 @@ function Sidebar(props: {
           </div>
         </ScrollArea>
       </div>
+
 
       <div className="mt-auto p-3 space-y-3">
         <div className="rounded-2xl p-4 bg-gradient-to-br from-primary-soft to-accent">
