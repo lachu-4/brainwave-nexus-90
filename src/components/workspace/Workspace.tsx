@@ -95,15 +95,39 @@ export function Workspace() {
     window.location.replace("/auth");
   }
 
+  const filteredConversations = useMemo(() => {
+    if (nav === "saved") return conversations.filter(c => c.mode === "research");
+    if (nav === "voice") return conversations.filter(c => /voice|transcri/i.test(c.title));
+    return conversations;
+  }, [conversations, nav]);
+
+  function handleNav(key: NavKey) {
+    setNav(key);
+    if (key === "dashboard") {
+      newChat("chat");
+    } else if (key === "saved") {
+      newChat("research");
+      toast.message("Showing saved research conversations");
+    } else if (key === "history") {
+      toast.message(`${conversations.length} conversation${conversations.length === 1 ? "" : "s"} in history`);
+    } else if (key === "tools") {
+      toast.message("Pick a mode to switch tools", { description: "Chat · Research · Fact Check" });
+    } else if (key === "voice") {
+      toast.message("Voice notes coming soon");
+    }
+  }
+
   return (
     <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
       <Sidebar
         displayName={displayName}
         userEmail={userEmail}
-        conversations={conversations}
+        conversations={filteredConversations}
         activeId={activeId}
+        activeNav={nav}
+        onNav={handleNav}
         onSelect={loadConversation}
-        onNew={() => newChat()}
+        onNew={() => { setNav("dashboard"); newChat(); }}
         onSignOut={signOut}
       />
       <ChatPane
@@ -117,10 +141,10 @@ export function Workspace() {
         onConversationsChanged={refreshConversations}
         loading={loadingConv}
       />
-      <RightRail mode={mode} onSelectMode={(m) => { newChat(m); }} />
     </div>
   );
 }
+
 
 /* ---------------- Sidebar ---------------- */
 function Sidebar(props: {
