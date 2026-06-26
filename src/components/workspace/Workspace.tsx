@@ -27,6 +27,8 @@ const MODE_META: Record<Mode, { label: string; icon: typeof Globe; placeholder: 
   factcheck: { label: "Fact Check", icon: ShieldCheck,   placeholder: "Paste a claim to fact-check..." },
 };
 
+type NavKey = "dashboard" | "history" | "saved" | "tools" | "voice";
+
 export function Workspace() {
   const [userEmail, setUserEmail] = useState("");
   const [displayName, setDisplayName] = useState("there");
@@ -35,6 +37,8 @@ export function Workspace() {
   const [mode, setMode] = useState<Mode>("chat");
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
   const [loadingConv, setLoadingConv] = useState(false);
+  const [nav, setNav] = useState<NavKey>("dashboard");
+
 
   // Load profile + conversations on mount
   useEffect(() => {
