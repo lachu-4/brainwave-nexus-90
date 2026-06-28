@@ -11,11 +11,12 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Plus, LayoutDashboard, Bookmark, Wrench,
   Send, Globe, ShieldCheck, LogOut, MessageSquare, MoreHorizontal,
-  Pencil, Trash2, BookmarkPlus, BookmarkMinus,
+  Pencil, Trash2, BookmarkPlus, BookmarkMinus, Menu,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -48,6 +49,7 @@ export function Workspace() {
   const [nav, setNav] = useState<NavKey>("dashboard");
   const [renameTarget, setRenameTarget] = useState<Conversation | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -154,20 +156,44 @@ export function Workspace() {
 
   return (
     <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
-      <Sidebar
-        displayName={displayName}
-        userEmail={userEmail}
-        conversations={filteredConversations}
-        activeId={activeId}
-        activeNav={nav}
-        onNav={handleNav}
-        onSelect={loadConversation}
-        onNew={() => { setNav("dashboard"); newChat(); }}
-        onSignOut={signOut}
-        onToggleSaved={toggleSaved}
-        onRename={openRename}
-        onDelete={deleteConversation}
-      />
+      {/* Desktop sidebar */}
+      <div className="hidden md:flex">
+        <Sidebar
+          displayName={displayName}
+          userEmail={userEmail}
+          conversations={filteredConversations}
+          activeId={activeId}
+          activeNav={nav}
+          onNav={(k) => { handleNav(k); }}
+          onSelect={(id) => { loadConversation(id); }}
+          onNew={() => { setNav("dashboard"); newChat(); }}
+          onSignOut={signOut}
+          onToggleSaved={toggleSaved}
+          onRename={openRename}
+          onDelete={deleteConversation}
+        />
+      </div>
+
+      {/* Mobile sidebar */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="p-0 w-[85vw] max-w-[20rem]">
+          <Sidebar
+            displayName={displayName}
+            userEmail={userEmail}
+            conversations={filteredConversations}
+            activeId={activeId}
+            activeNav={nav}
+            onNav={(k) => { handleNav(k); setMobileNavOpen(false); }}
+            onSelect={(id) => { loadConversation(id); setMobileNavOpen(false); }}
+            onNew={() => { setNav("dashboard"); newChat(); setMobileNavOpen(false); }}
+            onSignOut={signOut}
+            onToggleSaved={toggleSaved}
+            onRename={openRename}
+            onDelete={deleteConversation}
+          />
+        </SheetContent>
+      </Sheet>
+
       <ChatPane
         key={activeId ?? "new"}
         mode={mode}
@@ -180,7 +206,9 @@ export function Workspace() {
         loading={loadingConv}
         currentConv={conversations.find(c => c.id === activeId) ?? null}
         onToggleSaved={toggleSaved}
+        onOpenMobileNav={() => setMobileNavOpen(true)}
       />
+
 
       <Dialog open={!!renameTarget} onOpenChange={(o) => !o && setRenameTarget(null)}>
         <DialogContent>
@@ -352,8 +380,9 @@ function ChatPane(props: {
   loading: boolean;
   currentConv: Conversation | null;
   onToggleSaved: (c: Conversation) => void;
+  onOpenMobileNav: () => void;
 }) {
-  const { mode, setMode, activeId, setActiveId, initialMessages, displayName, onConversationsChanged, loading, currentConv, onToggleSaved } = props;
+  const { mode, setMode, activeId, setActiveId, initialMessages, displayName, onConversationsChanged, loading, currentConv, onToggleSaved, onOpenMobileNav } = props;
   const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
   const [input, setInput] = useState("");
   const persistedIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => m.id)));
@@ -428,12 +457,21 @@ function ChatPane(props: {
 
   return (
     <main className="flex-1 flex flex-col min-w-0 bg-background">
-      <header className="px-8 py-5 border-b border-border flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Good day, {displayName}! 👋</h1>
-          <p className="text-sm text-muted-foreground">How can I help you with your research today?</p>
+      <header className="px-4 sm:px-8 py-4 sm:py-5 border-b border-border flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 sm:justify-between">
+        <div className="flex items-start gap-3 min-w-0">
+          <button
+            onClick={onOpenMobileNav}
+            className="md:hidden mt-1 h-9 w-9 shrink-0 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-secondary"
+            aria-label="Open menu"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-semibold truncate">Good day, {displayName}! 👋</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">How can I help you with your research today?</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center bg-secondary rounded-full p-1">
             {(Object.keys(MODE_META) as Mode[]).map(m => {
               const Icon = MODE_META[m].icon;
@@ -443,12 +481,12 @@ function ChatPane(props: {
                   key={m}
                   onClick={() => setMode(m)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition",
+                    "px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 transition",
                     active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
-                  {MODE_META[m].label}
+                  <span className="hidden xs:inline sm:inline">{MODE_META[m].label}</span>
                 </button>
               );
             })}
@@ -469,7 +507,7 @@ function ChatPane(props: {
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 py-6">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-6">
         <div className="max-w-3xl mx-auto space-y-6">
           {loading && <div className="text-sm text-muted-foreground">Loading conversation…</div>}
           {!loading && messages.length === 0 && (
@@ -493,7 +531,7 @@ function ChatPane(props: {
         </div>
       </div>
 
-      <div className="px-8 pb-6">
+      <div className="px-4 sm:px-8 pb-4 sm:pb-6">
         <form onSubmit={handleSend} className="max-w-3xl mx-auto bg-card border border-border rounded-2xl p-3 shadow-sm">
           <Input
             value={input}
