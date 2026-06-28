@@ -49,6 +49,7 @@ export function Workspace() {
   const [nav, setNav] = useState<NavKey>("dashboard");
   const [renameTarget, setRenameTarget] = useState<Conversation | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
