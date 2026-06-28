@@ -156,20 +156,44 @@ export function Workspace() {
 
   return (
     <div className="h-screen w-screen flex bg-background text-foreground overflow-hidden">
-      <Sidebar
-        displayName={displayName}
-        userEmail={userEmail}
-        conversations={filteredConversations}
-        activeId={activeId}
-        activeNav={nav}
-        onNav={handleNav}
-        onSelect={loadConversation}
-        onNew={() => { setNav("dashboard"); newChat(); }}
-        onSignOut={signOut}
-        onToggleSaved={toggleSaved}
-        onRename={openRename}
-        onDelete={deleteConversation}
-      />
+      {/* Desktop sidebar */}
+      <div className="hidden md:flex">
+        <Sidebar
+          displayName={displayName}
+          userEmail={userEmail}
+          conversations={filteredConversations}
+          activeId={activeId}
+          activeNav={nav}
+          onNav={(k) => { handleNav(k); }}
+          onSelect={(id) => { loadConversation(id); }}
+          onNew={() => { setNav("dashboard"); newChat(); }}
+          onSignOut={signOut}
+          onToggleSaved={toggleSaved}
+          onRename={openRename}
+          onDelete={deleteConversation}
+        />
+      </div>
+
+      {/* Mobile sidebar */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="p-0 w-[85vw] max-w-[20rem]">
+          <Sidebar
+            displayName={displayName}
+            userEmail={userEmail}
+            conversations={filteredConversations}
+            activeId={activeId}
+            activeNav={nav}
+            onNav={(k) => { handleNav(k); setMobileNavOpen(false); }}
+            onSelect={(id) => { loadConversation(id); setMobileNavOpen(false); }}
+            onNew={() => { setNav("dashboard"); newChat(); setMobileNavOpen(false); }}
+            onSignOut={signOut}
+            onToggleSaved={toggleSaved}
+            onRename={openRename}
+            onDelete={deleteConversation}
+          />
+        </SheetContent>
+      </Sheet>
+
       <ChatPane
         key={activeId ?? "new"}
         mode={mode}
@@ -182,7 +206,9 @@ export function Workspace() {
         loading={loadingConv}
         currentConv={conversations.find(c => c.id === activeId) ?? null}
         onToggleSaved={toggleSaved}
+        onOpenMobileNav={() => setMobileNavOpen(true)}
       />
+
 
       <Dialog open={!!renameTarget} onOpenChange={(o) => !o && setRenameTarget(null)}>
         <DialogContent>
