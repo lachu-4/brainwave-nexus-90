@@ -380,8 +380,9 @@ function ChatPane(props: {
   loading: boolean;
   currentConv: Conversation | null;
   onToggleSaved: (c: Conversation) => void;
+  onOpenMobileNav: () => void;
 }) {
-  const { mode, setMode, activeId, setActiveId, initialMessages, displayName, onConversationsChanged, loading, currentConv, onToggleSaved } = props;
+  const { mode, setMode, activeId, setActiveId, initialMessages, displayName, onConversationsChanged, loading, currentConv, onToggleSaved, onOpenMobileNav } = props;
   const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
   const [input, setInput] = useState("");
   const persistedIdsRef = useRef<Set<string>>(new Set(initialMessages.map(m => m.id)));
