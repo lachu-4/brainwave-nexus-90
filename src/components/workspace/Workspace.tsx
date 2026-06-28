@@ -531,7 +531,7 @@ function ChatPane(props: {
         </div>
       </div>
 
-      <div className="px-8 pb-6">
+      <div className="px-4 sm:px-8 pb-4 sm:pb-6">
         <form onSubmit={handleSend} className="max-w-3xl mx-auto bg-card border border-border rounded-2xl p-3 shadow-sm">
           <Input
             value={input}
