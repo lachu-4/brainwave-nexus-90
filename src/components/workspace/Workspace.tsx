@@ -11,11 +11,12 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
   Sparkles, Plus, LayoutDashboard, Bookmark, Wrench,
   Send, Globe, ShieldCheck, LogOut, MessageSquare, MoreHorizontal,
-  Pencil, Trash2, BookmarkPlus, BookmarkMinus,
+  Pencil, Trash2, BookmarkPlus, BookmarkMinus, Menu,
 } from "lucide-react";
 import { toast } from "sonner";
 
